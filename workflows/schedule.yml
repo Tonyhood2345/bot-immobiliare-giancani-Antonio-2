@@ -1,0 +1,31 @@
+name: Bot Immobiliare Giancani
+
+on:
+  schedule:
+    # Esegue ogni giorno alle 13:00 UTC (sono le 14:00 in Italia d'inverno, 15:00 d'estate)
+    - cron: '0 13 * * *'
+  workflow_dispatch: # Questo serve per testarlo manualmente col pulsante
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Scarica il codice
+        uses: actions/checkout@v3
+
+      - name: Installa Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Installa librerie necessarie
+        run: |
+          pip install pandas requests
+
+      - name: Esegui il Bot
+        env:
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_ACCESS_TOKEN: ${{ secrets.FB_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python main.py
