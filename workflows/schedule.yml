@@ -1,7 +1,7 @@
 name: Bot Immobiliare Giancani
 
 on:
-  schedule:
+# [KILL SWITCH META DISATTIVATO]   schedule:
     # Esegue ogni giorno alle 13:00 UTC (sono le 14:00 in Italia d'inverno, 15:00 d'estate)
     - cron: '0 13 * * *'
   workflow_dispatch: # Questo serve per testarlo manualmente col pulsante

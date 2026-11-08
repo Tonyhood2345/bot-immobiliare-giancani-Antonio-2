@@ -4,80 +4,103 @@ import requests
 from datetime import datetime
 import sys
 
-# --- CONFIGURAZIONE ---
-# Questi dati verranno letti dai "Segreti" di GitHub o dal tuo PC
-# NON scrivere qui il token se condividi il codice con altri
-FB_PAGE_ID = os.environ.get("FB_PAGE_ID") 
-FB_ACCESS_TOKEN = os.environ.get("FB_ACCESS_TOKEN")
+# ==============================================================================
+# ⛔ BLOCCO META ATTIVO: Tutte le comunicazioni verso Meta sono bloccate.
+# ✈️ CONVOGLIAMENTO SU TELEGRAM: Ogni interazione/post è instradato su Telegram.
+# ==============================================================================
 
-# Impostazioni Repository GitHub (Modifica con il tuo nome utente e nome repo)
-# Esempio: se il tuo user è "antonio-giancani" e la repo "social-bot"
-GITHUB_USER = os.environ.get("GITHUB_REPOSITORY_OWNER") # Lo prende in automatico su GitHub
-REPO_NAME = os.environ.get("GITHUB_REPOSITORY")         # Lo prende in automatico su GitHub
-BRANCH = "main"                                         # Di solito è main o master
+# Credenziali Telegram per convogliare le interazioni
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN") or "8643190035:AAHaUOT12j8l9f6GU9WW4W9HFOLfV-5r5-U"
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID") or "1723292483"
+
+# Configurazione Facebook conservata per ripristino futuro (ma DISATTIVATA)
+FB_PAGE_ID_BACKUP = os.environ.get("FB_PAGE_ID") or "108297671444008"
+FB_ACCESS_TOKEN_BACKUP = os.environ.get("FB_ACCESS_TOKEN")
+
+# Impostazioni Repository GitHub
+GITHUB_USER = os.environ.get("GITHUB_REPOSITORY_OWNER")
+REPO_NAME = os.environ.get("GITHUB_REPOSITORY")
+BRANCH = "main"
 
 def get_image_url_from_github(filename):
     """Costruisce il link pubblico dell'immagine caricata su GitHub"""
-    # Esempio: https://raw.githubusercontent.com/antoniogiancani/social-bot/main/images/Giorno_1.png
     base_url = f"https://raw.githubusercontent.com/{REPO_NAME}/{BRANCH}/images/{filename}"
     return base_url
 
 def post_to_facebook(message, image_url):
-    """Invia la foto e il testo alla Pagina Facebook"""
-    url = f"https://graph.facebook.com/v19.0/{FB_PAGE_ID}/photos"
+    """
+    ⛔ BLOCCO META: Graph API disattivata.
+    ✈️ CONVOGLIAMENTO: Invia il post e la foto direttamente a Telegram (Chat ID 1723292483).
+    """
+    print("⛔ [BLOCCO META] Chiamata a graph.facebook.com bloccata con successo.")
+    print("✈️ [CONVOGLIAMENTO TELEGRAM] Invio del post programmato ad Antonio su Telegram...")
     
-    payload = {
-        'url': image_url,       # Link dell'immagine
-        'message': message,     # Testo del post (con hashtag)
-        'access_token': FB_ACCESS_TOKEN
+    caption = f"📢 *[POST SOCIAL PROGRAMMATO — CONVOGLIATO SU TELEGRAM]*
+_(Meta/Facebook bloccato)_
+
+{message}"
+    if len(caption) > 1024:
+        caption = caption[:1020] + "..."
+        
+    url_tg_photo = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    payload_photo = {
+        'chat_id': TELEGRAM_CHAT_ID,
+        'photo': image_url,
+        'caption': caption,
+        'parse_mode': 'Markdown'
     }
     
     try:
-        response = requests.post(url, data=payload)
-        response.raise_for_status() # Solleva errore se qualcosa va storto
-        print("✅ POST PUBBLICATO CON SUCCESSO SU FACEBOOK!")
-        print(f"🆔 ID Post: {response.json().get('id')}")
-    except requests.exceptions.RequestException as e:
-        print(f"❌ ERRORE FACEBOOK: {e}")
-        if response is not None:
-            print(f"Dettagli errore: {response.text}")
-        sys.exit(1) # Ferma tutto con errore
+        res = requests.post(url_tg_photo, data=payload_photo, timeout=25)
+        if res.status_code == 200:
+            print("✅ Post inviato con successo su Telegram!")
+            return
+        else:
+            print(f"⚠️ Errore invio foto Telegram ({res.status_code}), tento solo testo...")
+            url_tg_msg = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+            payload_msg = {
+                'chat_id': TELEGRAM_CHAT_ID,
+                'text': f"{caption}
+
+🖼️ *Link Immagine:* {image_url}",
+                'parse_mode': 'Markdown'
+            }
+            res_msg = requests.post(url_tg_msg, data=payload_msg, timeout=25)
+            if res_msg.status_code == 200:
+                print("✅ Post (testo) inviato con successo su Telegram!")
+            else:
+                print(f"❌ Errore fallback Telegram: {res_msg.text}")
+    except Exception as e:
+        print(f"❌ Errore Telegram: {e}")
 
 def main():
-    print("--- AVVIO BOT IMMOBILIARE GIANCANI ---")
+    print("--- AVVIO BOT IMMOBILIARE GIANCANI (META BLOCCATO -> CONVOGLIATO SU TELEGRAM) ---")
     
-    # 1. Carica il file CSV
-    # Assicurati che il file si chiami esattamente posts.csv
     try:
         df = pd.read_csv("posts.csv")
     except Exception as e:
         print(f"❌ Errore lettura CSV: {e}")
         sys.exit(1)
 
-    # 2. Che giorno è oggi?
-    today = datetime.now().strftime("%d/%m/%Y") # Formato gg/mm/aaaa (es. 05/01/2026)
+    today = datetime.now().strftime("%d/%m/%Y")
     print(f"📅 Data di oggi: {today}")
 
-    # 3. Cerca la riga corrispondente a oggi
-    # Filtra il file CSV cercando la colonna 'Data' uguale a 'today'
     todays_post = df[df['Data'] == today]
 
     if todays_post.empty:
         print("📭 Nessun post programmato per oggi nel CSV.")
-        sys.exit(0) # Esce senza errori, semplicemente non c'è nulla da fare
+        sys.exit(0)
 
-    # 4. Estrae i dati dalla riga trovata
     row = todays_post.iloc[0]
     messaggio_post = row['Testo']
-    nome_file_immagine = row['File'] # Es: Giorno_1.png
+    nome_file_immagine = row['File']
     
-    print(f"📝 Testo trovato: {messaggio_post[:30]}...") # Stampa solo l'inizio
+    print(f"📝 Testo trovato: {messaggio_post[:30]}...")
     print(f"🖼️ File immagine: {nome_file_immagine}")
 
-    # 5. Ottieni il link dell'immagine
     image_url = get_image_url_from_github(nome_file_immagine)
     
-    # 6. Pubblica su Facebook
+    # Convoglia su Telegram
     post_to_facebook(messaggio_post, image_url)
 
 if __name__ == "__main__":
